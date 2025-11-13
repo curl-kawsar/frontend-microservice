@@ -1,42 +1,39 @@
-# Multi-stage build for Vite frontend microservice
+# Multi-stage build: Build app in one stage, serve in another for smaller final image
 # Stage 1: Build the application
-FROM node:18-alpine AS build
+FROM node:18-alpine AS build    # Lightweight Node.js image for building
 
-# Set working directory
-WORKDIR /app
+WORKDIR /app                    # Set working directory inside container
 
-# Set build-time environment variable for Vite
-ARG VITE_API_URL=https://api.prod.example.com
-ENV VITE_API_URL=$VITE_API_URL
+# Set API URL that Vite will inject into the build
+ARG VITE_API_URL=https://api.prod.example.com  # Build-time variable (can be overridden)
+ENV VITE_API_URL=$VITE_API_URL                 # Make it available during build
 
-# Copy package files first to leverage Docker cache
-COPY package*.json ./
+# Copy package files first for better Docker layer caching
+COPY package*.json ./           # Copy dependency files only
 
-# Install dependencies (including dev dependencies for build)
-# Use npm ci if package-lock.json exists, otherwise use npm install
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+# Install all dependencies needed for building
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi  # Use fastest install method
 
-# Copy source code
-COPY . .
+# Copy all source code
+COPY . .                        # Copy everything else (src/, configs, etc.)
 
-# Build the application for production
-RUN npm run build
+# Build optimized production bundle
+RUN npm run build              # Creates ./dist/ folder with built app
 
-# Stage 2: Serve the application with nginx
-FROM nginx:alpine AS production
+# Stage 2: Serve the application with nginx (much smaller final image)
+FROM nginx:alpine AS production # Lightweight web server image
 
-# Copy built application from build stage
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copy built files from previous stage
+COPY --from=build /app/dist /usr/share/nginx/html  # Only copy the built app
 
-# Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Use custom nginx config for SPA routing and performance
+COPY nginx.conf /etc/nginx/conf.d/default.conf     # Custom server configuration
 
-# Expose port 80
-EXPOSE 80
+EXPOSE 80                      # Document that app runs on port 80
 
-# Health check (using wget which is available in nginx:alpine)
+# Monitor container health automatically
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start web server in foreground
+CMD ["nginx", "-g", "daemon off;"]  # Keep container running

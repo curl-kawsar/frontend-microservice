@@ -1,86 +1,90 @@
 name: Frontend Microservice CI Pipeline
 
+# When this pipeline runs
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop ]    # Auto-run on main/develop push
   pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ main ]             # Auto-run on PR to main
+  workflow_dispatch:               # Manual trigger button
 
+# Global variables for the pipeline
 env:
-  REGISTRY: docker.io
-  IMAGE_NAME: curlkawsar/frontend-microservice
+  REGISTRY: docker.io                          # DockerHub registry
+  IMAGE_NAME: curlkawsar/frontend-microservice # DockerHub image name
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest         # Use GitHub's Ubuntu server
     permissions:
-      contents: read
-      packages: write
+      contents: read               # Can read repo files
+      packages: write              # Can push Docker images
 
     steps:
-      # Checkout repository
+      # Step 1: Get the code
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4  # Download repo to runner
 
-      # Set up Node.js for testing (optional)
+      # Step 2: Setup Node.js environment
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: '18'       # Use Node.js 18
+          cache: 'npm'             # Cache npm files for speed
 
-      # Install dependencies and run tests (optional)
+      # Step 3: Install project dependencies
       - name: Install dependencies
         run: |
           if [ -f package-lock.json ]; then
-            npm ci
+            npm ci                 # Fast install with lockfile
           else
-            npm install
+            npm install            # Regular install fallback
           fi
 
+      # Step 4: Run tests if they exist
       - name: Run tests
-        run: npm run test --if-present
+        run: npm run test --if-present  # Skip if no test script
 
+      # Step 5: Run code quality checks
       - name: Run linting
-        run: npm run lint --if-present
+        run: npm run lint --if-present  # Skip if no lint script
 
-      # Set up Docker Buildx
+      # Step 6: Setup advanced Docker builder
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3  # Enables multi-platform builds
 
-      # Extract metadata for Docker
+      # Step 7: Generate Docker tags and labels
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch      # branch-name tag
+            type=ref,event=pr          # pr-123 tag
+            type=sha,prefix={{branch}}- # branch-abc123 tag
+            type=raw,value=latest,enable={{is_default_branch}}  # latest tag for main
 
-      # Login to Docker Hub
+      # Step 8: Login to DockerHub (skip for PRs)
       - name: Login to Docker Hub
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request'  # Don't login for PRs
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}  # From GitHub secrets
+          password: ${{ secrets.DOCKERHUB_TOKEN }}     # From GitHub secrets
 
-      # Build and push Docker image
+      # Step 9: Build and publish Docker image
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          context: .                              # Use current directory
+          file: ./Dockerfile                      # Use our Dockerfile
+          platforms: linux/amd64,linux/arm64     # Build for Intel & ARM
+          push: ${{ github.event_name != 'pull_request' }}  # Push except PRs
+          tags: ${{ steps.meta.outputs.tags }}              # Use generated tags
+          labels: ${{ steps.meta.outputs.labels }}          # Add metadata labels
           build-args: |
-            VITE_API_URL=https://api.prod.example.com
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            VITE_API_URL=https://api.prod.example.com       # Set production API URL
+          cache-from: type=gha                    # Use GitHub cache for speed
+          cache-to: type=gha,mode=max             # Save layers to GitHub cache
