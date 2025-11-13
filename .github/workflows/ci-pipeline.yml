@@ -84,3 +84,46 @@ jobs:
             VITE_API_URL=https://api.prod.example.com
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+
+# This GitHub Actions pipeline provides automated CI/CD for the frontend microservice
+# with comprehensive testing, building, and deployment capabilities.
+#
+# TRIGGERS:
+# - Automatic: Push to main/develop branches
+# - Automatic: Pull requests to main branch  
+# - Manual: workflow_dispatch button in GitHub Actions tab
+#
+# PIPELINE FLOW:
+# 1. Code Checkout: Downloads repository content to GitHub runner
+# 2. Node.js Setup: Installs Node.js 18 with npm caching for faster builds
+# 3. Dependencies: Smart install (npm ci if lockfile exists, npm install otherwise)
+# 4. Quality Checks: Runs tests and linting if scripts are present
+# 5. Docker Setup: Configures BuildKit for advanced features and multi-platform builds
+# 6. Metadata: Generates Docker tags (latest, branch-name, commit-sha) and labels
+# 7. Registry Login: Authenticates with DockerHub using GitHub Secrets
+# 8. Build & Push: Creates multi-arch images (AMD64/ARM64) and pushes to registry
+#
+# DOCKER IMAGE TAGS CREATED:
+# - main branch → 'latest' tag
+# - develop branch → 'develop' tag  
+# - feature branches → 'feature-branch-name' tag
+# - All commits → 'branch-commit-sha' tag
+#
+# PULL REQUEST BEHAVIOR:
+# - Builds and tests code to validate changes
+# - Does NOT login to DockerHub or push images
+# - Provides safety net before merging to main
+#
+# PERFORMANCE OPTIMIZATIONS:
+# - GitHub Actions caching for npm dependencies
+# - Docker layer caching for faster subsequent builds
+# - Multi-platform builds run in parallel
+# - Build time: ~30s (cached) to ~5min (fresh)
+
+# DEPLOYMENT:
+# - Images available at: docker.io/curlkawsar/frontend-microservice
+# - Production API URL injected: https://api.prod.example.com
+# - Multi-architecture support for Intel and ARM processors
+# - Automatic health checks and monitoring capabilities
+

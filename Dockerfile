@@ -40,3 +40,24 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
+
+
+#
+# STAGE 1 (Build): 
+# - Uses Node.js 18 Alpine (~200MB) to compile TypeScript and bundle assets
+# - Installs all dependencies (including devDependencies) needed for building
+# - Runs 'vite build' to create optimized production bundle in ./dist/
+# - Injects VITE_API_URL environment variable during build process
+#
+# STAGE 2 (Production):
+# - Uses nginx Alpine (~40MB) as lightweight web server
+# - Only copies the built files from Stage 1 (no source code or build tools)
+# - Final image size: ~50MB (vs ~200MB if single-stage)
+# - Configured for SPA routing with fallback to index.html
+# - Includes gzip compression, caching headers, and security features
+# - Health check endpoint at /health for container orchestration
+# - Runs nginx in foreground to keep container alive
+#
+# USAGE:
+# docker build -t frontend-microservice .
+# docker run -p 8080:80 frontend-microservice
