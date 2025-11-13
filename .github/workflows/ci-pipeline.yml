@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: your-dockerhub-username/frontend-microservice
+  IMAGE_NAME: curlkawsar/frontend-microservice
 
 jobs:
   build-and-push:
